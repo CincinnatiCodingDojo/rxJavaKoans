@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static util.LessonResources.Elevator;
@@ -77,11 +78,11 @@ public class lessonC_BooleanLogicAndErrorHandling {
          * How!?!
          */
 
-        Func1<ElevatorPassenger, Boolean> elevatorRule = passenger -> ____ + ____ < ____;
+        Func1<ElevatorPassenger, Boolean> elevatorRule = passenger -> passenger.mWeightInPounds + elevator.getTotalWeight() < 500;
         /**
          * Now all we need to do is to plug in the rule in takeWhile()
          */
-        elevatorQueueOne.takeWhile(_______).doOnNext(elevator::addPassenger).subscribe(mSubscriber);
+        elevatorQueueOne.takeWhile(elevatorRule).doOnNext(elevator::addPassenger).subscribe(mSubscriber);
         assertThat(elevator.getPassengerCount()).isGreaterThan(0);
         assertThat(elevator.getTotalWeight()).isLessThan(Elevator.MAX_CAPACITY_POUNDS);
         assertThat(elevator.getPassengerCount()).isEqualTo(2);
@@ -100,14 +101,20 @@ public class lessonC_BooleanLogicAndErrorHandling {
 
         /**
          * a (secret) Extra Challenge!
-         * Using what we've learned of rxJava so far, how could we get a list of passengers from elevatorQueueOne that didn't make it
+         * Using what we've learned of rxJava so far, how could we get a list of passengers
+         * from elevatorQueueOne that didn't make it
          * into elevatorOne?
          */
         mSubscriber = new TestSubscriber<>();
+
+        LessonResources.Elevator didntMakeIt = new LessonResources.Elevator();
+
+//        elevatorQueueOne.takeWhile(elevatorRule).doOnNext(elevator::addPassenger)
+//                .skipWhile(elevatorRule).doOnNext(didntMakeIt::addPassenger).subscribe(mSubscriber);
         //
         // ???
         //
-        // assertThat(mSubscriber.getOnNextEvents()).hasSize(3);
+        assertThat(mSubscriber.getOnNextEvents()).hasSize(3);
     }
 
     /**
@@ -136,10 +143,10 @@ public class lessonC_BooleanLogicAndErrorHandling {
         /**
          * Do we have several servers that give the same data and we want the fastest of the two?
          */
-        Observable.amb(________, ________, ________).subscribe(mSubscriber);
+        Observable.amb(networkA, networkB, networkC).subscribe(mSubscriber);
         mSubscriber.awaitTerminalEvent();
         List<Object> onNextEvents = mSubscriber.getOnNextEvents();
-        assertThat(onNextEvents).contains("request took : " + ____ + " millis");
+        assertThat(onNextEvents).contains("request took : " + smallestNetworkLatency + " millis");
         assertThat(onNextEvents).hasSize(1);
 
         // bonus! we can call .cache() on an operation that takes a while. It will save the pipeline's events
@@ -158,7 +165,7 @@ public class lessonC_BooleanLogicAndErrorHandling {
         Observable.just(2, 4, 6, 8, 9)
                 .all(integer -> integer % 2 == 0)
                 .subscribe(aBoolean -> mBooleanValue = aBoolean);
-        assertThat(mBooleanValue).isEqualTo(____);
+        assertThat(mBooleanValue).isEqualTo(false);
     }
 
     /**
@@ -171,6 +178,7 @@ public class lessonC_BooleanLogicAndErrorHandling {
         mSum = 0;
         Observable<Integer> range = Observable.range(1, 10);
         //hmmmmmmmm.. how can we emit 1 value of 19 from the original range of numbers?
+        range.skipWhile(i -> i<9).doOnNext(i -> mSum += i).subscribe();
         assertThat(mSum).isEqualTo(19);
     }
 
@@ -186,15 +194,15 @@ public class lessonC_BooleanLogicAndErrorHandling {
         List<String> arrayOne = new ArrayList<>();
         List<String> arrayTwo = new ArrayList<>();
         List<String> arrayThree = null;
-        Object mThrowable = null;
+        AtomicReference<Throwable> mThrowable = new AtomicReference<>();
         Observable.just(arrayOne, arrayTwo, arrayThree).map(new Func1<List<String>, List<String>>() {
             @Override
             public List<String> call(List<String> strings) {
                 strings.add("GOOD JOB!");
                 return strings;
             }
-        }).doOnError(oops -> ______ = oops).subscribe(mSubscriber);
-        assertThat(mThrowable).isInstanceOf(Throwable.class);
+        }).doOnError(oops -> mThrowable.set(oops)).subscribe(mSubscriber);
+        assertThat(mThrowable.get()).isInstanceOf(Throwable.class);
     }
 
     /**
